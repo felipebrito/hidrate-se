@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>Registrar Consumo de Água</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: rgba(0, 40, 80, 0.95);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      user-select: none;
+    }
+    
+    h1 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 24px;
+      text-align: center;
+      color: #5abeef;
+    }
+    
+    .container {
+      width: 90%;
+      max-width: 500px;
+      background: linear-gradient(135deg, rgba(0, 70, 130, 0.8) 0%, rgba(0, 50, 100, 0.8) 100%);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .progress-container {
+      width: 100%;
+      height: 20px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      margin-bottom: 15px;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.5s ease;
+      background: linear-gradient(90deg, #1e88e5, #64b5f6);
+    }
+    
+    .progress-bar.completed {
+      background: linear-gradient(90deg, #43a047, #81c784);
+    }
+    
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    
+    .stat-box {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 8px;
+      flex: 1;
+      margin: 0 5px;
+    }
+    
+    .stat-title {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 5px;
+    }
+    
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    
+    .buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .amount-button {
+      background-color: rgba(90, 190, 239, 0.1);
+      border: 1px solid rgba(90, 190, 239, 0.3);
+      padding: 10px 0;
+      border-radius: 8px;
+      width: calc(33.3% - 10px);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .amount-button:hover {
+      background-color: rgba(90, 190, 239, 0.2);
+      transform: scale(1.03);
+    }
+    
+    .amount-button:active {
+      transform: scale(0.98);
+    }
+    
+    .custom-amount {
+      display: flex;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    
+    .custom-amount input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px 0 0 8px;
+      background-color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+    }
+    
+    .custom-amount input:focus {
+      outline: none;
+    }
+    
+    .custom-amount button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 0 8px 8px 0;
+      background-color: #1e88e5;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .custom-amount button:hover {
+      background-color: #1976d2;
+    }
+    
+    .message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    
+    .message.success {
+      background-color: rgba(67, 160, 71, 0.2);
+      color: #a5d6a7;
+      opacity: 1;
+    }
+    
+    .message.error {
+      background-color: rgba(244, 67, 54, 0.2);
+      color: #ef9a9a;
+      opacity: 1;
+    }
+    
+    .footer-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    
+    .footer-button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .footer-button:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .footer-button.primary {
+      background-color: #1e88e5;
+    }
+    
+    .footer-button.primary:hover {
+      background-color: #1976d2;
+    }
+    
+    .history {
+      margin-top: 20px;
+      width: 100%;
+    }
+    
+    .history-title {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #5abeef;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 5px;
+    }
+    
+    .history-list {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+    
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px;
+      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+    }
+    
+    .history-time {
+      opacity: 0.7;
+    }
+    
+    .history-amount {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Registro de Hidratação</h1>
+    
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-title">Consumido Hoje</div>
+        <div class="stat-value" id="consumidoHoje">0ml</div>
+      </div>
+      
+      <div class="stat-box">
+        <div class="stat-title">Meta Diária</div>
+        <div class="stat-value" id="metaDiaria">4000ml</div>
+      </div>
+      
+      <div class="stat-box">
+        <div class="stat-title">Restante</div>
+        <div class="stat-value" id="restante">4000ml</div>
+      </div>
+    </div>
+    
+    <div class="buttons-container" id="buttonsContainer">
+      <!-- Botões de quantidade serão gerados dinamicamente -->
+    </div>
+    
+    <div class="custom-amount">
+      <input type="number" id="customAmount" placeholder="Quantidade em ml" min="1" max="2000">
+      <button id="addCustomAmount">Adicionar</button>
+    </div>
+    
+    <div class="message" id="message"></div>
+    
+    <div class="history">
+      <div class="history-title">Registros de Hoje</div>
+      <div class="history-list" id="historyList">
+        <!-- Registros serão gerados dinamicamente -->
+      </div>
+    </div>
+    
+    <div class="footer-buttons">
+      <button class="footer-button" id="viewReportButton">Ver Relatório</button>
+      <button class="footer-button primary" id="closeButton">Fechar</button>
+    </div>
+  </div>
+  
+  <script>
+    // Comunicação com o processo principal via IPC
+    // Usar a variável global window.electron disponibilizada pelo preload.js
+    
+    // Elementos da interface
+    const progressBar = document.getElementById('progressBar');
+    const consumidoHoje = document.getElementById('consumidoHoje');
+    const metaDiaria = document.getElementById('metaDiaria');
+    const restante = document.getElementById('restante');
+    const buttonsContainer = document.getElementById('buttonsContainer');
+    const customAmountInput = document.getElementById('customAmount');
+    const addCustomAmountButton = document.getElementById('addCustomAmount');
+    const messageElement = document.getElementById('message');
+    const historyList = document.getElementById('historyList');
+    const viewReportButton = document.getElementById('viewReportButton');
+    const closeButton = document.getElementById('closeButton');
+    
+    // Estado da aplicação
+    let dadosHidratacao = {
+      total: 0,
+      metaDiaria: 4000,
+      opcoesPadrao: [200, 300, 500],
+      registros: []
+    };
+    
+    // Carregar dados iniciais
+    document.addEventListener('DOMContentLoaded', () => {
+      // Solicitar dados de hidratação do dia atual
+      window.electron.send('get-today-hydration');
+      
+      // Receber dados de hidratação
+      window.electron.receive('today-hydration', (data) => {
+        atualizarInterface(data);
+      });
+      
+      // Receber atualizações após registrar
+      window.electron.receive('hydration-updated', (data) => {
+        const mensagem = `${data.quantidade}ml adicionados com sucesso!`;
+        mostrarMensagem(mensagem, true);
+        
+        // Solicitar dados atualizados
+        window.electron.send('get-today-hydration');
+      });
+    });
+    
+    // Atualizar a interface com os dados
+    function atualizarInterface(data) {
+      dadosHidratacao = data;
+      
+      // Atualizar estatísticas
+      consumidoHoje.textContent = `${data.total}ml`;
+      metaDiaria.textContent = `${data.metaDiaria}ml`;
+      
+      const restanteVal = Math.max(0, data.metaDiaria - data.total);
+      restante.textContent = `${restanteVal}ml`;
+      
+      // Atualizar barra de progresso
+      const progresso = Math.min(100, data.progresso);
+      progressBar.style.width = `${progresso}%`;
+      progressBar.className = progresso >= 100 ? 'progress-bar completed' : 'progress-bar';
+      
+      // Gerar botões de quantidade
+      gerarBotoesQuantidade(data.opcoesPadrao);
+      
+      // Atualizar histórico
+      atualizarHistorico(data.registros);
+    }
+    
+    // Gerar botões de quantidade com base nas opções padrão
+    function gerarBotoesQuantidade(opcoes) {
+      buttonsContainer.innerHTML = '';
+      
+      opcoes.forEach(quantidade => {
+        const button = document.createElement('div');
+        button.className = 'amount-button';
+        button.textContent = `${quantidade}ml`;
+        button.addEventListener('click', () => registrarConsumo(quantidade));
+        buttonsContainer.appendChild(button);
+      });
+    }
+    
+    // Atualizar histórico de consumo
+    function atualizarHistorico(registros) {
+      historyList.innerHTML = '';
+      
+      if (registros.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.textContent = 'Nenhum registro para hoje.';
+        emptyMessage.style.textAlign = 'center';
+        emptyMessage.style.padding = '10px';
+        emptyMessage.style.opacity = '0.7';
+        historyList.appendChild(emptyMessage);
+        return;
+      }
+      
+      // Ordenar registros do mais recente para o mais antigo
+      const registrosOrdenados = [...registros].sort((a, b) => b.timestamp - a.timestamp);
+      
+      registrosOrdenados.forEach(registro => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        
+        const time = document.createElement('div');
+        time.className = 'history-time';
+        time.textContent = registro.hora;
+        
+        const amount = document.createElement('div');
+        amount.className = 'history-amount';
+        amount.textContent = `${registro.quantidade}ml`;
+        
+        item.appendChild(time);
+        item.appendChild(amount);
+        historyList.appendChild(item);
+      });
+    }
+    
+    // Registrar consumo de água
+    function registrarConsumo(quantidade) {
+      window.electron.send('register-hydration', quantidade);
+    }
+    
+    // Mostrar mensagem de sucesso ou erro
+    function mostrarMensagem(texto, sucesso = true) {
+      messageElement.textContent = texto;
+      messageElement.className = sucesso ? 'message success' : 'message error';
+      
+      // Limpar a mensagem após 3 segundos
+      setTimeout(() => {
+        messageElement.className = 'message';
+      }, 3000);
+    }
+    
+    // Event listeners
+    addCustomAmountButton.addEventListener('click', () => {
+      const quantidade = parseInt(customAmountInput.value);
+      
+      if (isNaN(quantidade) || quantidade <= 0 || quantidade > 2000) {
+        mostrarMensagem('Por favor, insira uma quantidade válida entre 1 e 2000ml', false);
+        return;
+      }
+      
+      registrarConsumo(quantidade);
+      customAmountInput.value = '';
+    });
+    
+    viewReportButton.addEventListener('click', () => {
+      window.electron.send('show-hydration-report');
+    });
+    
+    closeButton.addEventListener('click', () => {
+      window.close();
+    });
+    
+    // Permitir pressionar Enter para adicionar quantidade personalizada
+    customAmountInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addCustomAmountButton.click();
+      }
+    });
+  </script>
+</body>
+</html> 

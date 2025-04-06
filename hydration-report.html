@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>Relatório de Hidratação</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: rgba(0, 40, 80, 0.95);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 15px;
+      color: #5abeef;
+      text-align: center;
+    }
+    .container {
+      background: linear-gradient(135deg, rgba(0, 70, 130, 0.8) 0%, rgba(0, 50, 100, 0.8) 100%);
+      border-radius: 12px;
+      padding: 20px;
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    .summary {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 25px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .summary-box {
+      text-align: center;
+      padding: 15px;
+      background-color: rgba(90, 190, 239, 0.1);
+      border-radius: 10px;
+      min-width: 150px;
+    }
+    .summary-title {
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 8px;
+    }
+    .summary-value {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .summary-subtitle {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 5px;
+    }
+    .daily-progress {
+      margin-top: 20px;
+    }
+    .day-row {
+      margin-bottom: 15px;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 15px;
+      transition: all 0.2s;
+    }
+    .day-row:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .day-date {
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .day-value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .meta-atingida {
+      color: #4caf50;
+      font-size: 14px;
+      display: inline-block;
+      margin-left: 10px;
+    }
+    .meta-nao-atingida {
+      color: #ff9800;
+      font-size: 14px;
+      display: inline-block;
+      margin-left: 10px;
+    }
+    .progress-container {
+      width: 100%;
+      height: 12px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.5s ease;
+      background: linear-gradient(90deg, #1e88e5, #64b5f6);
+    }
+    .progress-bar.achieved {
+      background: linear-gradient(90deg, #43a047, #81c784);
+    }
+    .details-section {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+      display: none;
+    }
+    .details-toggle {
+      background: none;
+      border: none;
+      color: #5abeef;
+      cursor: pointer;
+      padding: 5px;
+      margin-top: 10px;
+      font-size: 14px;
+      display: block;
+      width: 100%;
+      text-align: center;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .details-toggle:hover {
+      opacity: 1;
+    }
+    .details-list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0 0;
+    }
+    .details-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 5px;
+      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+    }
+    .details-time {
+      opacity: 0.7;
+    }
+    .settings-button {
+      background-color: #1e88e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin-top: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+      display: block;
+      width: 200px;
+      margin: 20px auto 0 auto;
+    }
+    .settings-button:hover {
+      background-color: #1976d2;
+    }
+    .period-selector {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      gap: 10px;
+    }
+    .period-button {
+      background-color: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-button.active {
+      background-color: #1e88e5;
+    }
+    .period-button:hover:not(.active) {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    .no-data {
+      text-align: center;
+      margin: 30px 0;
+      font-style: italic;
+      opacity: 0.7;
+    }
+    .settings-section {
+      display: none;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .settings-row {
+      margin-bottom: 15px;
+    }
+    .settings-label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    .settings-input {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+    }
+    .settings-save {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 15px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      float: right;
+    }
+    .settings-save:hover {
+      background-color: #43a047;
+    }
+    .chart-container {
+      margin-top: 20px;
+      height: 200px;
+      position: relative;
+    }
+    .chart-bar {
+      position: absolute;
+      bottom: 0;
+      background: linear-gradient(to top, #1e88e5, #64b5f6);
+      border-radius: 6px 6px 0 0;
+      transition: height 0.5s;
+    }
+    .chart-bar.achieved {
+      background: linear-gradient(to top, #43a047, #81c784);
+    }
+    .chart-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .chart-label {
+      text-align: center;
+      font-size: 12px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meta-line {
+      position: absolute;
+      width: 100%;
+      border-top: 2px dashed rgba(255, 255, 255, 0.3);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Relatório de Hidratação</h1>
+    
+    <div class="period-selector">
+      <button class="period-button active" data-days="7">7 Dias</button>
+      <button class="period-button" data-days="15">15 Dias</button>
+      <button class="period-button" data-days="30">30 Dias</button>
+    </div>
+    
+    <div class="summary">
+      <div class="summary-box">
+        <div class="summary-title">Período</div>
+        <div class="summary-value" id="periodo">01/04 - 07/04</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-title">Consumo Total</div>
+        <div class="summary-value" id="consumoTotal">0ml</div>
+      </div>
+      <div class="summary-box">
+        <div class="summary-title">Média Diária</div>
+        <div class="summary-value" id="mediaDiaria">0ml</div>
+        <div class="summary-subtitle" id="cumprimentoMedio">0% da meta</div>
+      </div>
+    </div>
+    
+    <div class="chart-container" id="chartContainer">
+      <div class="meta-line" id="metaLine"></div>
+      <!-- Barras do gráfico serão geradas dinamicamente -->
+    </div>
+    <div class="chart-labels" id="chartLabels">
+      <!-- Labels do gráfico serão geradas dinamicamente -->
+    </div>
+    
+    <div class="daily-progress" id="dailyProgress">
+      <!-- Registros diários serão gerados dinamicamente -->
+    </div>
+    
+    <button class="settings-button" id="settingsButton">Ajustar Meta Diária</button>
+    
+    <div class="settings-section" id="settingsSection">
+      <div class="settings-row">
+        <label class="settings-label" for="metaInput">Meta Diária (ml)</label>
+        <input type="number" id="metaInput" class="settings-input" min="1000" max="10000" step="100">
+      </div>
+      <div class="settings-row">
+        <label class="settings-label" for="opcoesInput">Opções de Registro (ml, separados por vírgula)</label>
+        <input type="text" id="opcoesInput" class="settings-input" placeholder="Ex: 200, 300, 500">
+      </div>
+      <button class="settings-save" id="saveSettings">Salvar</button>
+      <div style="clear: both;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Comunicação com o processo principal via IPC
+    // Usar a variável global window.electron disponibilizada pelo preload.js
+    
+    // Elementos da interface
+    const periodoElement = document.getElementById('periodo');
+    const consumoTotalElement = document.getElementById('consumoTotal');
+    const mediaDiariaElement = document.getElementById('mediaDiaria');
+    const cumprimentoMedioElement = document.getElementById('cumprimentoMedio');
+    const dailyProgressElement = document.getElementById('dailyProgress');
+    const chartContainerElement = document.getElementById('chartContainer');
+    const chartLabelsElement = document.getElementById('chartLabels');
+    const metaLineElement = document.getElementById('metaLine');
+    const periodButtons = document.querySelectorAll('.period-button');
+    const settingsButton = document.getElementById('settingsButton');
+    const settingsSection = document.getElementById('settingsSection');
+    const metaInput = document.getElementById('metaInput');
+    const opcoesInput = document.getElementById('opcoesInput');
+    const saveSettings = document.getElementById('saveSettings');
+    
+    // Estado da aplicação
+    let diasSelecionados = 7;
+    let relatorioAtual = null;
+    let metaDiaria = 4000;
+    let opcoesPadrao = [200, 300, 500];
+    
+    // Carregar dados iniciais
+    document.addEventListener('DOMContentLoaded', () => {
+      window.electron.receive('hydration-report', (data) => {
+        relatorioAtual = data;
+        renderizarRelatorio(data);
+      });
+      
+      window.electron.receive('hydration-settings', (settings) => {
+        metaDiaria = settings.metaDiaria;
+        opcoesPadrao = settings.opcoesPadrao;
+        metaInput.value = metaDiaria;
+        opcoesInput.value = opcoesPadrao.join(', ');
+      });
+      
+      // Solicitar dados ao processo principal
+      solicitarRelatorio(diasSelecionados);
+      window.electron.send('get-hydration-settings');
+    });
+    
+    // Solicitar relatório com determinado número de dias
+    function solicitarRelatorio(dias) {
+      window.electron.send('get-hydration-report', dias);
+    }
+    
+    // Renderizar relatório
+    function renderizarRelatorio(relatorio) {
+      // Atualizar resumo
+      periodoElement.textContent = `${relatorio.periodo.inicio} - ${relatorio.periodo.fim}`;
+      consumoTotalElement.textContent = `${relatorio.consumoTotal}ml`;
+      mediaDiariaElement.textContent = `${Math.round(relatorio.mediaDiaria)}ml`;
+      cumprimentoMedioElement.textContent = `${Math.round(relatorio.cumprimentoMedio)}% da meta`;
+      
+      // Limpar elementos anteriores
+      dailyProgressElement.innerHTML = '';
+      chartContainerElement.innerHTML = '<div class="meta-line" id="metaLine"></div>';
+      chartLabelsElement.innerHTML = '';
+      
+      // Posicionar linha da meta
+      metaLineElement.style.bottom = `${(relatorio.metaDiaria / getMaxValue(relatorio.dias) * 100)}%`;
+      
+      // Verificar se temos dados
+      if (relatorio.dias.length === 0) {
+        dailyProgressElement.innerHTML = '<div class="no-data">Não há dados para exibir neste período</div>';
+        return;
+      }
+      
+      // Renderizar gráfico
+      renderizarGrafico(relatorio);
+      
+      // Renderizar progresso diário
+      relatorio.dias.forEach((dia) => {
+        // Criar elemento do dia
+        const dayElement = document.createElement('div');
+        dayElement.className = 'day-row';
+        
+        // Cabeçalho do dia
+        const headerElement = document.createElement('div');
+        headerElement.className = 'day-header';
+        
+        // Data
+        const dateElement = document.createElement('div');
+        dateElement.className = 'day-date';
+        dateElement.textContent = `${dia.diaDaSemana}, ${dia.dataFormatada}`;
+        
+        // Valor
+        const valueElement = document.createElement('div');
+        valueElement.className = 'day-value';
+        valueElement.textContent = `${dia.consumoTotal}ml`;
+        
+        // Badge de meta atingida ou não
+        if (dia.atingiuMeta) {
+          const badgeElement = document.createElement('span');
+          badgeElement.className = 'meta-atingida';
+          badgeElement.textContent = '✓ Meta atingida';
+          valueElement.appendChild(badgeElement);
+        } else if (dia.consumoTotal > 0) {
+          const badgeElement = document.createElement('span');
+          badgeElement.className = 'meta-nao-atingida';
+          badgeElement.textContent = `${Math.round(dia.progresso)}%`;
+          valueElement.appendChild(badgeElement);
+        }
+        
+        headerElement.appendChild(dateElement);
+        headerElement.appendChild(valueElement);
+        dayElement.appendChild(headerElement);
+        
+        // Barra de progresso
+        const progressContainerElement = document.createElement('div');
+        progressContainerElement.className = 'progress-container';
+        
+        const progressBarElement = document.createElement('div');
+        progressBarElement.className = dia.atingiuMeta ? 'progress-bar achieved' : 'progress-bar';
+        progressBarElement.style.width = `${Math.min(100, dia.progresso)}%`;
+        
+        progressContainerElement.appendChild(progressBarElement);
+        dayElement.appendChild(progressContainerElement);
+        
+        // Botão para mostrar/esconder detalhes se houver registros
+        if (dia.registros && dia.registros.length > 0) {
+          const detailsToggleElement = document.createElement('button');
+          detailsToggleElement.className = 'details-toggle';
+          detailsToggleElement.textContent = `Ver detalhes (${dia.registros.length} registros)`;
+          dayElement.appendChild(detailsToggleElement);
+          
+          // Seção de detalhes
+          const detailsSectionElement = document.createElement('div');
+          detailsSectionElement.className = 'details-section';
+          
+          // Lista de registros
+          const detailsListElement = document.createElement('ul');
+          detailsListElement.className = 'details-list';
+          
+          dia.registros.forEach((registro) => {
+            const listItemElement = document.createElement('li');
+            listItemElement.className = 'details-item';
+            
+            const timeElement = document.createElement('span');
+            timeElement.className = 'details-time';
+            timeElement.textContent = registro.hora;
+            
+            const amountElement = document.createElement('span');
+            amountElement.className = 'details-amount';
+            amountElement.textContent = `${registro.quantidade}ml`;
+            
+            listItemElement.appendChild(timeElement);
+            listItemElement.appendChild(amountElement);
+            detailsListElement.appendChild(listItemElement);
+          });
+          
+          detailsSectionElement.appendChild(detailsListElement);
+          dayElement.appendChild(detailsSectionElement);
+          
+          // Evento para mostrar/esconder detalhes
+          detailsToggleElement.addEventListener('click', () => {
+            const isVisible = detailsSectionElement.style.display === 'block';
+            detailsSectionElement.style.display = isVisible ? 'none' : 'block';
+            detailsToggleElement.textContent = isVisible 
+              ? `Ver detalhes (${dia.registros.length} registros)` 
+              : 'Esconder detalhes';
+          });
+        }
+        
+        dailyProgressElement.appendChild(dayElement);
+      });
+    }
+    
+    // Renderizar gráfico de barras
+    function renderizarGrafico(relatorio) {
+      const dias = relatorio.dias;
+      const maxValue = getMaxValue(dias);
+      const barWidth = 100 / dias.length;
+      
+      dias.forEach((dia, index) => {
+        // Criar barra do gráfico
+        const barElement = document.createElement('div');
+        barElement.className = dia.atingiuMeta ? 'chart-bar achieved' : 'chart-bar';
+        barElement.style.width = `${barWidth - 4}%`;
+        barElement.style.left = `${index * barWidth + 2}%`;
+        barElement.style.height = `${dia.consumoTotal / maxValue * 100}%`;
+        
+        // Tooltip com informações detalhadas
+        barElement.title = `${dia.diaDaSemana}, ${dia.dataFormatada}: ${dia.consumoTotal}ml (${Math.round(dia.progresso)}%)`;
+        
+        chartContainerElement.appendChild(barElement);
+        
+        // Criar label para a barra
+        const labelElement = document.createElement('div');
+        labelElement.className = 'chart-label';
+        labelElement.textContent = dia.dataFormatada.split('/').slice(0, 2).join('/');
+        chartLabelsElement.appendChild(labelElement);
+      });
+    }
+    
+    // Obter valor máximo para escala do gráfico
+    function getMaxValue(dias) {
+      if (dias.length === 0) return 4000; // Valor padrão
+      
+      // Encontrar o maior valor de consumo
+      const maxConsumo = Math.max(...dias.map(dia => dia.consumoTotal));
+      
+      // Usar a meta diária se for maior que o consumo máximo
+      return Math.max(maxConsumo, relatorioAtual.metaDiaria);
+    }
+    
+    // Evento para botões de período
+    periodButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Atualizar botão ativo
+        periodButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // Atualizar período selecionado
+        diasSelecionados = parseInt(button.dataset.days);
+        
+        // Solicitar novo relatório
+        solicitarRelatorio(diasSelecionados);
+      });
+    });
+    
+    // Evento para botão de configurações
+    settingsButton.addEventListener('click', () => {
+      const isVisible = settingsSection.style.display === 'block';
+      settingsSection.style.display = isVisible ? 'none' : 'block';
+      settingsButton.textContent = isVisible ? 'Ajustar Meta Diária' : 'Ocultar Configurações';
+    });
+    
+    // Evento para salvar configurações
+    saveSettings.addEventListener('click', () => {
+      // Validar meta diária
+      const novaMeta = parseInt(metaInput.value);
+      if (isNaN(novaMeta) || novaMeta < 1000) {
+        alert('Por favor, insira uma meta diária válida (mínimo 1000ml)');
+        return;
+      }
+      
+      // Validar opções
+      const opcoesTexto = opcoesInput.value.split(',');
+      const opcoes = [];
+      
+      for (const op of opcoesTexto) {
+        const valor = parseInt(op.trim());
+        if (!isNaN(valor) && valor > 0) {
+          opcoes.push(valor);
+        }
+      }
+      
+      if (opcoes.length === 0) {
+        alert('Por favor, insira pelo menos uma opção de registro válida');
+        return;
+      }
+      
+      // Enviar configurações para o processo principal
+      window.electron.send('save-hydration-settings', {
+        metaDiaria: novaMeta,
+        opcoesPadrao: opcoes
+      });
+      
+      // Atualizar variáveis locais
+      metaDiaria = novaMeta;
+      opcoesPadrao = opcoes;
+      
+      // Ocultar seção de configurações
+      settingsSection.style.display = 'none';
+      settingsButton.textContent = 'Ajustar Meta Diária';
+      
+      // Atualizar relatório
+      solicitarRelatorio(diasSelecionados);
+    });
+  </script>
+</body>
+</html> 

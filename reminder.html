@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src * https://cdn.jsdelivr.net app://* file://*; img-src 'self' data:;">
+  <title>Hora de Beber Água!</title>
+  
+  <!-- Carregamento ordenado e correto do TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@2.0.0/dist/tf-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@2.0.0/dist/tf-backend-cpu.min.js"></script>
+  <script>
+    // Inicializar o backend imediatamente para evitar problemas
+    try {
+      // Verificar se temos o core e backend disponíveis
+      if (typeof tf !== 'undefined') {
+        console.log('TensorFlow core disponível, inicializando...');
+        // Registrar o backend CPU explicitamente
+        if (typeof tf.registerBackend === 'function') {
+          tf.registerBackend('cpu');
+          console.log('Backend CPU registrado manualmente');
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao inicializar TensorFlow.js:', e);
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@2.0.0/dist/tf-converter.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+  <script>
+    // Configurar o backend após carregar todos os scripts
+    try {
+      if (typeof tf !== 'undefined' && typeof tf.setBackend === 'function') {
+        console.log('Definindo backend CPU após carregar todos os scripts...');
+        tf.setBackend('cpu').then(() => {
+          if (typeof tf.getBackend === 'function') {
+            console.log('Backend configurado para:', tf.getBackend());
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao configurar backend após carregar scripts:', e);
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.0.3/dist/coco-ssd.min.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: rgba(0, 40, 80, 0.95); /* Azul escuro em vez de preto */
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow: hidden; /* Prevenir scrolling */
+      user-select: none; /* Desabilitar seleção de texto */
+    }
+    h1 {
+      font-size: 48px;
+      margin-bottom: 30px;
+      animation: pulse 2s infinite;
+      color: #5abeef; /* Azul claro para títulos */
+      text-shadow: 0 0 10px rgba(90, 190, 239, 0.5);
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1000; /* Garantir que esteja acima de outros elementos */
+      padding: 20px;
+      border-radius: 15px;
+      background: linear-gradient(135deg, rgba(0, 70, 130, 0.8) 0%, rgba(0, 50, 100, 0.8) 100%);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      max-width: 90%;
+    }
+    .video-container {
+      margin: 20px 0;
+      border: 3px solid #5abeef; /* Azul claro */
+      border-radius: 10px;
+      overflow: hidden;
+      width: 640px;
+      height: 480px;
+      position: relative;
+      box-shadow: 0 0 15px rgba(90, 190, 239, 0.5);
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Espelha o vídeo para ser como um espelho */
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1); /* Espelha o canvas também */
+    }
+    .status {
+      margin-top: 20px;
+      font-size: 24px;
+      color: #ffffff;
+    }
+    .progress-container {
+      width: 100%;
+      max-width: 400px;
+      height: 30px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 15px;
+      margin-top: 20px;
+      overflow: hidden;
+      display: none;
+      box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #1e88e5, #64b5f6);
+      width: 0%;
+      transition: width 0.1s ease-in-out;
+    }
+    .target-objects {
+      margin-top: 10px;
+      font-size: 18px;
+      opacity: 0.9;
+      color: #91d7ff;
+    }
+    .debug-info {
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.7;
+      color: #64b5f6;
+      display: none;
+    }
+    /* Efeito de ondas de água */
+    .water-wave {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%235abeef" fill-opacity="0.2" d="M0,256L48,240C96,224,192,192,288,192C384,192,480,224,576,229.3C672,235,768,213,864,186.7C960,160,1056,128,1152,138.7C1248,149,1344,203,1392,229.3L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
+      background-size: cover;
+      z-index: -1;
+      opacity: 0.5;
+      animation: wave 10s linear infinite;
+    }
+    @keyframes wave {
+      0% { background-position-x: 0; }
+      100% { background-position-x: 1440px; }
+    }
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 40, 80, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 5px solid #64b5f6;
+      border-top-color: #1e88e5;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="water-wave"></div>
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="status" id="loadingStatus">Carregando modelo de detecção...</div>
+    <div style="margin-top: 30px;">
+      <button onclick="skipDetection()" style="padding: 10px 20px; background: #64b5f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Pular Detecção (Se estiver com problemas)
+      </button>
+    </div>
+  </div>
+  <div class="container">
+    <h1>Hora de Beber Água!</h1>
+    <p>Esta tela só será liberada quando você beber água.</p>
+    <p>Mostre um copo ou garrafa de água para a câmera.</p>
+    
+    <div class="video-container">
+      <video id="video" playsinline autoplay></video>
+      <canvas id="canvas"></canvas>
+    </div>
+    
+    <div class="target-objects">✅ Objetos reconhecidos: <strong>APENAS</strong> copos, garrafas, taças ou outros recipientes</div>
+    <div class="status" id="status">Procurando por copo ou garrafa...</div>
+    
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div class="debug-info" id="debugInfo"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Variáveis globais
+    let model;
+    let modelLoaded = false;
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const debugInfo = document.getElementById('debugInfo');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Mostrar informações de debug em ambiente de desenvolvimento
+    debugInfo.style.display = 'none'; // Mantemos oculto por padrão
+    
+    // Configurações
+    const CONFIDENCE_THRESHOLD = 0.40;  // Limiar para 40%
+    const DETECTION_PERSISTENCE = 3000; // Tempo em ms que objeto deve ficar visível (3s)
+    const TARGET_CLASSES = ['cup', 'bottle', 'wine glass', 'vase', 'bowl']; // Classes a detectar
+    
+    // Tradução dos nomes de objetos
+    const TRANSLATIONS = {
+      'cup': 'Copo',
+      'bottle': 'Garrafa',
+      'wine glass': 'Taça',
+      'vase': 'Vaso',
+      'bowl': 'Tigela'
+    };
+    
+    let detectionStartTime = null;
+    let isDetecting = false;
+    let detectionProgress = 0;
+    let detectionRunning = false;
+    let cameraReady = false;
+    
+    // Contador para limitar as detecções e evitar sobrecarga
+    let frameCount = 0;
+    const FRAMES_PER_DETECTION = 10; // Detectar a cada 10 frames
+    
+    // Verificar se TensorFlow e COCO-SSD estão disponíveis
+    function checkTensorflowAvailable() {
+      const tfAvailable = (typeof tf !== 'undefined');
+      const cocoAvailable = (typeof cocoSsd !== 'undefined');
+      
+      console.log('TensorFlow.js disponível:', tfAvailable);
+      console.log('COCO-SSD disponível:', cocoAvailable);
+      
+      return tfAvailable && cocoAvailable;
+    }
+    
+    // Inicializar TensorFlow.js manualmente
+    async function initializeTensorflow() {
+      try {
+        if (typeof tf !== 'undefined') {
+          console.log('Inicializando TensorFlow.js manualmente...');
+          
+          // Registrar backend CPU
+          if (typeof tf.registerBackend === 'function') {
+            try {
+              tf.registerBackend('cpu');
+              console.log('Backend CPU registrado manualmente');
+            } catch (e) {
+              console.log('Backend CPU já registrado ou erro:', e);
+            }
+          }
+          
+          // Definir backend para CPU
+          if (typeof tf.setBackend === 'function') {
+            try {
+              await tf.setBackend('cpu');
+              console.log('Backend definido para CPU');
+              
+              if (typeof tf.getBackend === 'function') {
+                console.log('Backend atual:', tf.getBackend());
+              }
+            } catch (e) {
+              console.error('Erro ao definir backend:', e);
+            }
+          }
+          
+          // Verificar disponibilidade do backend
+          if (typeof tf.ready === 'function') {
+            await tf.ready();
+            console.log('TensorFlow.js inicializado com sucesso');
+          }
+          
+          return true;
+        } else {
+          console.error('TensorFlow.js não está disponível');
+          return false;
+        }
+      } catch (e) {
+        console.error('Erro ao inicializar TensorFlow.js:', e);
+        return false;
+      }
+    }
+    
+    // Carregar modelo de detecção de objetos
+    async function loadModel() {
+      try {
+        console.log('Iniciando carregamento do modelo...');
+        
+        // Inicializar TensorFlow.js
+        const tfInitialized = await initializeTensorflow();
+        if (!tfInitialized) {
+          throw new Error('Não foi possível inicializar o TensorFlow.js');
+        }
+        
+        // Verificar se COCO-SSD está disponível
+        if (typeof cocoSsd === 'undefined') {
+          throw new Error('COCO-SSD não está disponível');
+        }
+        
+        // Carregar modelo com opções específicas
+        console.log('Carregando modelo COCO-SSD com configuração lite...');
+        try {
+          model = await cocoSsd.load({
+            base: 'lite_mobilenet_v2'
+          });
+          console.log('Modelo COCO-SSD carregado com sucesso!');
+        } catch (modelError) {
+          console.error('Erro ao carregar modelo com configurações específicas:', modelError);
+          
+          // Tentar carregar com configuração padrão
+          console.log('Tentando carregar modelo com configuração padrão...');
+          model = await cocoSsd.load();
+          console.log('Modelo COCO-SSD padrão carregado com sucesso!');
+        }
+        
+        modelLoaded = true;
+        statusText.textContent = "Procurando por copo ou garrafa...";
+        
+        // Esconder overlay de carregamento
+        loadingOverlay.style.display = 'none';
+        
+        return model;
+      } catch (error) {
+        console.error("Erro ao carregar modelo:", error);
+        statusText.textContent = "Erro ao carregar modelo. Você pode pular a detecção se preferir.";
+        
+        // Mostrar botão para tentar de novo
+        const loadingStatus = document.getElementById('loadingStatus');
+        loadingStatus.innerHTML = `
+          Erro ao carregar modelo.<br>
+          Mensagem: ${error.message}<br>
+          <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #1e88e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Tentar Novamente
+          </button>
+          <button onclick="skipDetection()" style="margin-top: 20px; margin-left: 10px; padding: 10px 20px; background: #64b5f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Pular Detecção
+          </button>
+        `;
+        
+        throw error;
+      }
+    }
+    
+    // Função para pular a detecção e fechar a janela
+    function skipDetection() {
+      console.log('Usuário optou por pular a detecção');
+      
+      // Confirmar com o usuário
+      if (confirm('Tem certeza que deseja pular a detecção e fechar a janela?\nIsso será registrado como se você tivesse bebido água.')) {
+        try {
+          // Esconder overlay de carregamento para mostrar interface brevemente
+          loadingOverlay.style.display = 'none';
+          statusText.textContent = "Enviando sinal para fechar...";
+          
+          // Após breve delay para mostrar feedback, fechar
+          setTimeout(() => {
+            // Tentar fechar através do electron
+            if (window.electron) {
+              window.electron.send('close-reminder');
+              console.log("Enviado close-reminder via electron");
+            } else {
+              // Fallback para caso o electron não esteja disponível
+              console.log("Electron não disponível, tentando fechar por outros meios");
+              window.close();
+            }
+          }, 500);
+        } catch (error) {
+          console.error("Erro ao tentar fechar:", error);
+          alert("Não foi possível fechar automaticamente. Por favor, feche esta janela manualmente.");
+        }
+      }
+    }
+    
+    // Iniciar o aplicativo
+    async function startApp() {
+      try {
+        console.log('Verificando disponibilidade do TensorFlow.js...');
+        
+        // Verificar se TensorFlow.js e COCO-SSD estão disponíveis
+        if (!checkTensorflowAvailable()) {
+          console.error('TensorFlow.js ou COCO-SSD não estão disponíveis');
+          
+          // Tentar inicializar manualmente
+          const initialized = await initializeTensorflow();
+          if (!initialized || typeof cocoSsd === 'undefined') {
+            throw new Error('Não foi possível inicializar TensorFlow.js ou COCO-SSD não está disponível');
+          }
+        }
+        
+        console.log('Iniciando aplicação...');
+        
+        try {
+          // Iniciar câmera e modelo em paralelo
+          const cameraPromise = setupCamera();
+          const modelPromise = loadModel();
+          
+          await Promise.all([cameraPromise, modelPromise]);
+          console.log('Câmera e modelo inicializados com sucesso!');
+          
+          // Iniciar detecção de objetos
+          detectObjects();
+        } catch (initError) {
+          console.error('Erro ao inicializar câmera ou modelo:', initError);
+          
+          // Se a câmera foi inicializada mas o modelo falhou, mostrar a câmera
+          if (cameraReady) {
+            console.log('Câmera disponível, mostrando vídeo sem detecção');
+            loadingOverlay.style.display = 'none';
+          }
+          
+          throw initError;
+        }
+      } catch (error) {
+        console.error('Erro ao iniciar aplicação:', error);
+        
+        // Mostrar mensagem de erro e opções para o usuário
+        const loadingStatus = document.getElementById('loadingStatus');
+        loadingStatus.innerHTML = `
+          Erro ao iniciar aplicação.<br>
+          Mensagem: ${error.message}<br>
+          <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #1e88e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Tentar Novamente
+          </button>
+          <button onclick="skipDetection()" style="margin-top: 20px; margin-left: 10px; padding: 10px 20px; background: #64b5f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Pular Detecção
+          </button>
+        `;
+      }
+    }
+    
+    // Iniciar aplicação quando a página carregar
+    window.onload = function() {
+      // Verificar se já temos TensorFlow.js carregado
+      setTimeout(() => {
+        console.log('Página carregada, iniciando aplicação...');
+        startApp();
+      }, 1000);
+    };
+    
+    // Iniciar câmera com tratamento de erros melhorado
+    async function setupCamera() {
+      try {
+        console.log('Solicitando acesso à câmera...');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            width: 640, 
+            height: 480,
+            facingMode: 'user' // Câmera frontal
+          },
+          audio: false
+        });
+        
+        console.log('Acesso à câmera obtido com sucesso');
+        video.srcObject = stream;
+        
+        return new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            console.log('Metadados de vídeo carregados');
+            cameraReady = true;
+            resolve(video);
+          };
+        });
+      } catch (error) {
+        console.error("Erro ao acessar a câmera:", error);
+        statusText.textContent = "Erro ao acessar a câmera. Verifique as permissões.";
+        
+        // Mostrar botão para tentar de novo
+        const loadingStatus = loadingOverlay.querySelector('.status');
+        loadingStatus.innerHTML = `Erro ao acessar a câmera.<br>Verifique se você concedeu permissão.<br><button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #1e88e5; color: white; border: none; border-radius: 4px; cursor: pointer;">Tentar Novamente</button>`;
+        
+        throw error;
+      }
+    }
+    
+    // Atualizar a barra de progresso
+    function updateProgressBar(progress) {
+      progressBar.style.width = `${progress}%`;
+      
+      if (progress > 0) {
+        progressContainer.style.display = 'block';
+      } else {
+        progressContainer.style.display = 'none';
+      }
+    }
+    
+    // Fechar a janela de lembrete
+    function closeReminder() {
+      statusText.textContent = "Consumo de água detectado! Redirecionando...";
+      
+      try {
+        // Tentar duas abordagens diferentes para garantir que o evento seja enviado
+        if (window.electron) {
+          window.electron.send('close-reminder');
+          console.log("Enviado close-reminder via electron");
+        } else {
+          // Fallback para caso o electron não esteja disponível corretamente
+          try {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.send('close-reminder');
+            console.log("Enviado close-reminder via ipcRenderer");
+          } catch (innerError) {
+            console.error("Erro no fallback:", innerError);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao enviar evento close-reminder:", error);
+      }
+    }
+    
+    // Traduzir nome do objeto
+    function translateObject(className) {
+      return TRANSLATIONS[className] || className;
+    }
+    
+    // Detectar objetos na câmera
+    async function detectObjects() {
+      // Se já está executando uma detecção ou o modelo não foi carregado, aguarde
+      if (detectionRunning || !modelLoaded || !cameraReady) {
+        requestAnimationFrame(detectObjects);
+        return;
+      }
+      
+      // Limitar a frequência de detecção para economizar recursos
+      frameCount++;
+      if (frameCount < FRAMES_PER_DETECTION) {
+        requestAnimationFrame(detectObjects);
+        return;
+      }
+      frameCount = 0;
+      
+      try {
+        // Marcar como em execução para evitar chamadas simultâneas
+        detectionRunning = true;
+        
+        // Configurar dimensões do canvas
+        if (video.videoWidth && video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        } else {
+          detectionRunning = false;
+          requestAnimationFrame(detectObjects);
+          return;
+        }
+        
+        // Executar a detecção
+        const predictions = await model.detect(video);
+        
+        // Limpar canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Desenhar retângulos e verificar se tem garrafa ou copo
+        let foundTarget = false;
+        let highestConfidence = 0;
+        let bestPrediction = null;
+        
+        // Verificar todas as previsões
+        let validObjectsDetected = [];
+        
+        // Procurar pela previsão com maior confiança
+        for (let i = 0; i < predictions.length; i++) {
+          const prediction = predictions[i];
+          
+          // Verificar se é uma classe válida e tem confiança suficiente
+          if (TARGET_CLASSES.includes(prediction.class) && prediction.score > CONFIDENCE_THRESHOLD) {
+            validObjectsDetected.push(prediction);
+            if (prediction.score > highestConfidence) {
+              highestConfidence = prediction.score;
+              bestPrediction = prediction;
+              foundTarget = true;
+            }
+          }
+        }
+        
+        // Desenhar todas as previsões válidas
+        for (let i = 0; i < predictions.length; i++) {
+          const prediction = predictions[i];
+          
+          // Cor diferente para objetos válidos
+          if (TARGET_CLASSES.includes(prediction.class) && prediction.score > 0.3) {
+            const confidence = prediction.score * 100;
+            const isHighConfidence = prediction.score > CONFIDENCE_THRESHOLD;
+            
+            // Usar cores de água para as detecções
+            ctx.strokeStyle = isHighConfidence ? '#1e88e5' : '#64b5f6';
+            ctx.lineWidth = isHighConfidence ? 4 : 2;
+            ctx.strokeRect(
+              prediction.bbox[0], 
+              prediction.bbox[1], 
+              prediction.bbox[2], 
+              prediction.bbox[3]
+            );
+            
+            // Adicionar texto com nome traduzido
+            ctx.fillStyle = isHighConfidence ? '#1e88e5' : '#64b5f6';
+            ctx.font = '16px Arial';
+            ctx.fillText(
+              `${translateObject(prediction.class)}: ${Math.round(confidence)}%`,
+              prediction.bbox[0], 
+              prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10
+            );
+          }
+        }
+        
+        // Gerenciar o estado de detecção
+        const now = Date.now();
+        
+        if (foundTarget) {
+          if (!isDetecting) {
+            // Iniciando detecção
+            detectionStartTime = now;
+            isDetecting = true;
+            statusText.textContent = `${translateObject(bestPrediction.class)} detectado! Mantenha-o visível...`;
+          } else {
+            // Continuar detecção
+            const elapsedTime = now - detectionStartTime;
+            detectionProgress = Math.min(100, (elapsedTime / DETECTION_PERSISTENCE) * 100);
+            updateProgressBar(detectionProgress);
+            
+            if (elapsedTime >= DETECTION_PERSISTENCE) {
+              // Detecção completa
+              statusText.textContent = "Verificação concluída! Fechando tela...";
+              
+              // Mostrar o objeto detectado com destaque
+              if (bestPrediction) {
+                ctx.fillStyle = 'rgba(30, 136, 229, 0.3)';
+                ctx.fillRect(
+                  bestPrediction.bbox[0], 
+                  bestPrediction.bbox[1], 
+                  bestPrediction.bbox[2], 
+                  bestPrediction.bbox[3]
+                );
+              }
+              
+              // Fechar após um breve atraso para mostrar mensagem de sucesso
+              setTimeout(closeReminder, 2000);
+              detectionRunning = false;
+              return;
+            }
+          }
+        } else {
+          // Objeto não detectado mais
+          if (isDetecting) {
+            isDetecting = false;
+            detectionProgress = 0;
+            updateProgressBar(detectionProgress);
+            statusText.textContent = "Objeto perdido! Mostre o copo ou garrafa novamente.";
+          }
+        }
+        
+        // Marcar como finalizado
+        detectionRunning = false;
+        
+        // Continuar detectando
+        requestAnimationFrame(detectObjects);
+      } catch (error) {
+        console.error("Erro na detecção:", error);
+        
+        // Reiniciar o estado
+        detectionRunning = false;
+        
+        // Tentar continuar apesar do erro
+        requestAnimationFrame(detectObjects);
+      }
+    }
+  </script>
+</body>
+</html>
