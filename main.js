@@ -84,27 +84,12 @@ function createTray() {
     return;
   }
   
-  // Usar o ícone de copo
-  const iconPath = path.join(__dirname, 'assets', 'cup-icon.svg');
+  const iconPath = path.join(__dirname, 'assets', 'icone.svg');
   const icon = nativeImage.createFromPath(iconPath);
   
-  // Se o SVG não funcionar, tentar o ícone padrão como fallback
-  let trayIcon;
-  if (icon.isEmpty()) {
-    const fallbackIconPath = path.join(__dirname, 'assets', 'icon-16.png');
-    trayIcon = nativeImage.createFromPath(fallbackIconPath);
-    
-    if (trayIcon.isEmpty()) {
-      trayIcon = nativeImage.createEmpty();
-    }
-  } else {
-    trayIcon = icon;
-  }
-  
-  appTray = new Tray(trayIcon);
+  appTray = new Tray(icon.resize({ width: 16, height: 16 }));
   appTray.setToolTip('Hidrate-se - Lembrete para beber água');
   
-  // Definir menu inicial
   const menu = buildTrayMenu(null);
   appTray.setContextMenu(menu);
   
@@ -268,108 +253,65 @@ function generateHydrationReport(dias = 7) {
 }
 
 function createWindow() {
-  // Se a janela já existir, apenas mostre-a e retorne
-  if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
-    return;
-  }
-  
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  
-  mainWindow = new BrowserWindow({
-    width: 400,
+  const mainWindow = new BrowserWindow({
+    width: 800,
     height: 600,
+    title: 'Hidrate-se',
+    icon: path.join(__dirname, 'assets', 'icone.svg'),
     webPreferences: {
-      nodeIntegration: false,
+      nodeIntegration: true,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
-    },
-    show: true, // Mostrar imediatamente
-    title: "Hidrate-se - Configurações"
+    }
   });
 
   mainWindow.loadFile('index.html');
-  
-  log('Janela principal criada');
-  
-  // Em vez de fechar a janela, apenas esconda-a
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-      return false;
-    }
-  });
-  
-  // Quando a janela é fechada de fato
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
 }
 
 function createReminderWindow() {
-  // Se já existir uma janela de lembrete, apenas a mostre e retorne
-  if (reminderWindow) {
-    reminderWindow.show();
+  if (reminderWindow && !reminderWindow.isDestroyed()) {
     reminderWindow.focus();
     return;
   }
-  
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  
-  reminderWindow = new BrowserWindow({
-    width: width,
-    height: height,
-    frame: false,
-    fullscreen: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    },
-    title: "Hidrate-se - Hora de beber água!"
-  });
-  
-  reminderWindow.loadFile('reminder.html');
-  
-  log('Janela de lembrete criada');
-  
-  // Reativar DevTools APENAS para esta janela
-  reminderWindow.webContents.openDevTools({ mode: 'detach' });
-  
-  reminderWindow.on('closed', () => {
-    reminderWindow = null;
-  });
-}
 
-// Criar janela de diálogo de hidratação
-function createHydrationDialog() {
-  if (hydrationDialogWindow) {
-    hydrationDialogWindow.show();
-    hydrationDialogWindow.focus();
-    return;
-  }
-  
-  hydrationDialogWindow = new BrowserWindow({
-    width: 500,
+  reminderWindow = new BrowserWindow({
+    width: 800,
     height: 600,
-    resizable: true,
-    title: 'Hidrate-se - Registrar Consumo',
+    title: 'Hidrate-se - Lembrete',
+    icon: path.join(__dirname, 'assets', 'icone.svg'),
     webPreferences: {
-      nodeIntegration: false,
+      nodeIntegration: true,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
-  
-  hydrationDialogWindow.loadFile('hydration-dialog.html');
-  
-  log('Janela de registro de hidratação criada');
-  
-  hydrationDialogWindow.on('closed', () => {
-    hydrationDialogWindow = null;
+
+  reminderWindow.loadFile('reminder.html');
+}
+
+function createHydrationDialog() {
+  if (hydrationDialogWindow && !hydrationDialogWindow.isDestroyed()) {
+    hydrationDialogWindow.focus();
+    return;
+  }
+
+  hydrationDialogWindow = new BrowserWindow({
+    width: 400,
+    height: 600,
+    title: 'Hidrate-se - Registrar Consumo',
+    icon: path.join(__dirname, 'assets', 'icone.svg'),
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#001e40'
   });
+
+  hydrationDialogWindow.loadFile('hydration-dialog.html');
 }
 
 // Criar janela de relatório de hidratação
