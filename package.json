@@ -16,7 +16,7 @@
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow/tfjs": "^4.15.0",
     "@tensorflow/tfjs-backend-cpu": "^4.15.0",
-    "@tensorflow/tfjs-backend-wasm": "^4.15.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
     "electron-store": "^8.1.0"
   },
   "devDependencies": {

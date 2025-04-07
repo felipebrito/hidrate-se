@@ -72,7 +72,7 @@ function formatRemainingTime(seconds) {
 
 function updateTrayText() {
   if (appTray) {
-    appTray.setTitle(`🚰 ${formatRemainingTime(remainingTimeSeconds)}`);
+    appTray.setTitle(`💧 ${formatRemainingTime(remainingTimeSeconds)}`);
   }
 }
 
@@ -113,9 +113,9 @@ function updateTray(remainingTime) {
     if (remainingTime > 0) {
       const minutes = Math.floor(remainingTime / 60);
       const seconds = remainingTime % 60;
-      appTray.setTitle(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+      appTray.setTitle(`💧 ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
     } else {
-      appTray.setTitle('');
+      appTray.setTitle('💧');
     }
   }
 }
