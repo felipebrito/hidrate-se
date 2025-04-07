@@ -2,441 +2,418 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data: blob:; media-src 'self' blob:;">
   <title>Registrar Consumo de Água</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       margin: 0;
       padding: 20px;
-      background-color: rgba(0, 40, 80, 0.95);
+      background: linear-gradient(135deg, #001e40 0%, #004080 100%);
       color: white;
+      height: 100vh;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      height: 100vh;
-      overflow-x: hidden;
-      overflow-y: auto;
-      user-select: none;
     }
-    
-    h1 {
-      margin-top: 0;
-      margin-bottom: 20px;
-      font-size: 24px;
-      text-align: center;
-      color: #5abeef;
-    }
-    
-    .container {
-      width: 90%;
-      max-width: 500px;
-      background: linear-gradient(135deg, rgba(0, 70, 130, 0.8) 0%, rgba(0, 50, 100, 0.8) 100%);
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    }
-    
-    .progress-container {
-      width: 100%;
-      height: 20px;
-      background-color: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      margin-bottom: 15px;
-      overflow: hidden;
-    }
-    
-    .progress-bar {
-      height: 100%;
-      border-radius: 10px;
-      width: 0%;
-      transition: width 0.5s ease;
-      background: linear-gradient(90deg, #1e88e5, #64b5f6);
-    }
-    
-    .progress-bar.completed {
-      background: linear-gradient(90deg, #43a047, #81c784);
-    }
-    
-    .stats {
+
+    .header {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       margin-bottom: 20px;
     }
-    
-    .stat-box {
+
+    .close-button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 5px;
+      transition: transform 0.2s;
+    }
+
+    .close-button:hover {
+      transform: scale(1.1);
+    }
+
+    h1 {
       text-align: center;
-      background: rgba(255, 255, 255, 0.05);
+      color: #4db6ff;
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .progress-container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .progress-info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .info-box {
+      background: rgba(0, 0, 0, 0.2);
       padding: 10px;
       border-radius: 8px;
-      flex: 1;
-      margin: 0 5px;
     }
-    
-    .stat-title {
-      font-size: 12px;
-      opacity: 0.7;
-      margin-bottom: 5px;
+
+    .info-box h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #4db6ff;
     }
-    
-    .stat-value {
+
+    .info-box p {
+      margin: 5px 0 0;
       font-size: 20px;
       font-weight: bold;
     }
-    
-    .buttons-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+
+    .progress-bar {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #4db6ff;
+      transition: width 0.3s ease;
+    }
+
+    .quick-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       margin-bottom: 20px;
     }
-    
+
     .amount-button {
-      background-color: rgba(90, 190, 239, 0.1);
-      border: 1px solid rgba(90, 190, 239, 0.3);
-      padding: 10px 0;
+      background: rgba(77, 182, 255, 0.2);
+      border: 2px solid #4db6ff;
+      color: white;
+      padding: 15px;
       border-radius: 8px;
-      width: calc(33.3% - 10px);
-      text-align: center;
+      font-size: 16px;
       cursor: pointer;
       transition: all 0.2s;
     }
-    
+
     .amount-button:hover {
-      background-color: rgba(90, 190, 239, 0.2);
-      transform: scale(1.03);
+      background: rgba(77, 182, 255, 0.3);
+      transform: translateY(-2px);
     }
-    
+
     .amount-button:active {
-      transform: scale(0.98);
+      transform: translateY(0);
     }
-    
-    .custom-amount {
+
+    .custom-input {
       display: flex;
+      gap: 10px;
       margin-bottom: 20px;
-      width: 100%;
     }
-    
-    .custom-amount input {
+
+    input[type="number"] {
       flex: 1;
-      padding: 10px;
+      padding: 12px;
       border: none;
-      border-radius: 8px 0 0 8px;
-      background-color: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
       font-size: 16px;
     }
-    
-    .custom-amount input:focus {
-      outline: none;
+
+    input[type="number"]::placeholder {
+      color: rgba(255, 255, 255, 0.5);
     }
-    
-    .custom-amount button {
-      padding: 10px 15px;
+
+    .add-button {
+      background: #4db6ff;
       border: none;
-      border-radius: 0 8px 8px 0;
-      background-color: #1e88e5;
       color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: all 0.2s;
     }
-    
-    .custom-amount button:hover {
-      background-color: #1976d2;
+
+    .add-button:hover {
+      background: #66c2ff;
+      transform: translateY(-2px);
     }
-    
+
+    .add-button:active {
+      transform: translateY(0);
+    }
+
     .message {
-      margin-top: 15px;
-      padding: 10px;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 25px;
       border-radius: 8px;
-      text-align: center;
-      opacity: 0;
-      transition: opacity 0.5s;
-    }
-    
-    .message.success {
-      background-color: rgba(67, 160, 71, 0.2);
-      color: #a5d6a7;
-      opacity: 1;
-    }
-    
-    .message.error {
-      background-color: rgba(244, 67, 54, 0.2);
-      color: #ef9a9a;
-      opacity: 1;
-    }
-    
-    .footer-buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-    
-    .footer-button {
-      padding: 10px 15px;
-      border: none;
-      border-radius: 8px;
-      background-color: rgba(255, 255, 255, 0.1);
       color: white;
-      cursor: pointer;
-      transition: background-color 0.2s;
+      opacity: 0;
+      transition: opacity 0.3s;
     }
-    
-    .footer-button:hover {
-      background-color: rgba(255, 255, 255, 0.2);
+
+    .message.success {
+      background: rgba(40, 167, 69, 0.9);
     }
-    
-    .footer-button.primary {
-      background-color: #1e88e5;
+
+    .message.error {
+      background: rgba(220, 53, 69, 0.9);
     }
-    
-    .footer-button.primary:hover {
-      background-color: #1976d2;
+
+    .message.show {
+      opacity: 1;
     }
-    
-    .history {
-      margin-top: 20px;
-      width: 100%;
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
     }
-    
-    .history-title {
-      font-size: 16px;
-      margin-bottom: 10px;
-      color: #5abeef;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding-bottom: 5px;
+
+    .amount-button.highlight {
+      animation: pulse 1s infinite;
+      background: rgba(77, 182, 255, 0.4);
     }
-    
-    .history-list {
-      max-height: 150px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-    }
-    
-    .history-item {
+
+    .buttons-container {
       display: flex;
-      justify-content: space-between;
-      padding: 8px;
-      border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+      gap: 10px;
+      margin-top: 20px;
     }
-    
-    .history-time {
-      opacity: 0.7;
+
+    .save-button {
+      flex: 1;
+      background: #4CAF50;
+      border: none;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    
-    .history-amount {
-      font-weight: bold;
+
+    .save-button:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+    }
+
+    .save-button:active {
+      transform: translateY(0);
+    }
+
+    .cancel-button {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cancel-button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .cancel-button:active {
+      transform: translateY(0);
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Registro de Hidratação</h1>
-    
-    <div class="progress-container">
-      <div class="progress-bar" id="progressBar"></div>
-    </div>
-    
-    <div class="stats">
-      <div class="stat-box">
-        <div class="stat-title">Consumido Hoje</div>
-        <div class="stat-value" id="consumidoHoje">0ml</div>
+  <div class="header">
+    <h1>Registrar Consumo de Água</h1>
+    <button class="close-button" onclick="closeWindow()">×</button>
+  </div>
+
+  <div class="progress-container">
+    <div class="progress-info">
+      <div class="info-box">
+        <h3>Consumido</h3>
+        <p id="consumed">0ml</p>
       </div>
-      
-      <div class="stat-box">
-        <div class="stat-title">Meta Diária</div>
-        <div class="stat-value" id="metaDiaria">4000ml</div>
+      <div class="info-box">
+        <h3>Meta Diária</h3>
+        <p id="goal">0ml</p>
       </div>
-      
-      <div class="stat-box">
-        <div class="stat-title">Restante</div>
-        <div class="stat-value" id="restante">4000ml</div>
+      <div class="info-box">
+        <h3>Restante</h3>
+        <p id="remaining">0ml</p>
       </div>
     </div>
-    
-    <div class="buttons-container" id="buttonsContainer">
-      <!-- Botões de quantidade serão gerados dinamicamente -->
-    </div>
-    
-    <div class="custom-amount">
-      <input type="number" id="customAmount" placeholder="Quantidade em ml" min="1" max="2000">
-      <button id="addCustomAmount">Adicionar</button>
-    </div>
-    
-    <div class="message" id="message"></div>
-    
-    <div class="history">
-      <div class="history-title">Registros de Hoje</div>
-      <div class="history-list" id="historyList">
-        <!-- Registros serão gerados dinamicamente -->
-      </div>
-    </div>
-    
-    <div class="footer-buttons">
-      <button class="footer-button" id="viewReportButton">Ver Relatório</button>
-      <button class="footer-button primary" id="closeButton">Fechar</button>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress"></div>
     </div>
   </div>
-  
+
+  <div class="quick-options" id="quickOptions">
+    <!-- Botões serão adicionados dinamicamente -->
+  </div>
+
+  <div class="custom-input">
+    <input type="number" id="customAmount" placeholder="Quantidade em ml" min="1" max="2000">
+    <button class="add-button" onclick="addCustomAmount()">Adicionar</button>
+  </div>
+
+  <div class="buttons-container">
+    <button class="save-button" onclick="saveAndClose()">Salvar</button>
+    <button class="cancel-button" onclick="closeWindow()">Cancelar</button>
+  </div>
+
+  <div id="message" class="message"></div>
+
   <script>
-    // Comunicação com o processo principal via IPC
-    // Usar a variável global window.electron disponibilizada pelo preload.js
-    
-    // Elementos da interface
-    const progressBar = document.getElementById('progressBar');
-    const consumidoHoje = document.getElementById('consumidoHoje');
-    const metaDiaria = document.getElementById('metaDiaria');
-    const restante = document.getElementById('restante');
-    const buttonsContainer = document.getElementById('buttonsContainer');
-    const customAmountInput = document.getElementById('customAmount');
-    const addCustomAmountButton = document.getElementById('addCustomAmount');
-    const messageElement = document.getElementById('message');
-    const historyList = document.getElementById('historyList');
-    const viewReportButton = document.getElementById('viewReportButton');
-    const closeButton = document.getElementById('closeButton');
-    
-    // Estado da aplicação
-    let dadosHidratacao = {
-      total: 0,
-      metaDiaria: 4000,
-      opcoesPadrao: [200, 300, 500],
-      registros: []
-    };
-    
-    // Carregar dados iniciais
-    document.addEventListener('DOMContentLoaded', () => {
-      // Solicitar dados de hidratação do dia atual
-      window.electron.send('get-today-hydration');
-      
-      // Receber dados de hidratação
-      window.electron.receive('today-hydration', (data) => {
-        atualizarInterface(data);
-      });
-      
-      // Receber atualizações após registrar
-      window.electron.receive('hydration-updated', (data) => {
-        const mensagem = `${data.quantidade}ml adicionados com sucesso!`;
-        mostrarMensagem(mensagem, true);
-        
-        // Solicitar dados atualizados
-        window.electron.send('get-today-hydration');
-      });
-    });
-    
-    // Atualizar a interface com os dados
-    function atualizarInterface(data) {
-      dadosHidratacao = data;
-      
-      // Atualizar estatísticas
-      consumidoHoje.textContent = `${data.total}ml`;
-      metaDiaria.textContent = `${data.metaDiaria}ml`;
-      
-      const restanteVal = Math.max(0, data.metaDiaria - data.total);
-      restante.textContent = `${restanteVal}ml`;
-      
-      // Atualizar barra de progresso
-      const progresso = Math.min(100, data.progresso);
-      progressBar.style.width = `${progresso}%`;
-      progressBar.className = progresso >= 100 ? 'progress-bar completed' : 'progress-bar';
-      
-      // Gerar botões de quantidade
-      gerarBotoesQuantidade(data.opcoesPadrao);
-      
-      // Atualizar histórico
-      atualizarHistorico(data.registros);
-    }
-    
-    // Gerar botões de quantidade com base nas opções padrão
-    function gerarBotoesQuantidade(opcoes) {
-      buttonsContainer.innerHTML = '';
-      
-      opcoes.forEach(quantidade => {
-        const button = document.createElement('div');
-        button.className = 'amount-button';
-        button.textContent = `${quantidade}ml`;
-        button.addEventListener('click', () => registrarConsumo(quantidade));
-        buttonsContainer.appendChild(button);
-      });
-    }
-    
-    // Atualizar histórico de consumo
-    function atualizarHistorico(registros) {
-      historyList.innerHTML = '';
-      
-      if (registros.length === 0) {
-        const emptyMessage = document.createElement('div');
-        emptyMessage.textContent = 'Nenhum registro para hoje.';
-        emptyMessage.style.textAlign = 'center';
-        emptyMessage.style.padding = '10px';
-        emptyMessage.style.opacity = '0.7';
-        historyList.appendChild(emptyMessage);
-        return;
+    let lastAmount = 0;
+    let totalConsumed = 0;
+    let dailyGoal = 4000;
+    let defaultOptions = [200, 300, 500];
+    let hasChanges = false;
+
+    function closeWindow() {
+      if (hasChanges) {
+        if (confirm('Existem alterações não salvas. Deseja sair sem salvar?')) {
+          window.electron.send('close-hydration-dialog');
+        }
+      } else {
+        window.electron.send('close-hydration-dialog');
       }
-      
-      // Ordenar registros do mais recente para o mais antigo
-      const registrosOrdenados = [...registros].sort((a, b) => b.timestamp - a.timestamp);
-      
-      registrosOrdenados.forEach(registro => {
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        
-        const time = document.createElement('div');
-        time.className = 'history-time';
-        time.textContent = registro.hora;
-        
-        const amount = document.createElement('div');
-        amount.className = 'history-amount';
-        amount.textContent = `${registro.quantidade}ml`;
-        
-        item.appendChild(time);
-        item.appendChild(amount);
-        historyList.appendChild(item);
-      });
     }
-    
-    // Registrar consumo de água
-    function registrarConsumo(quantidade) {
-      window.electron.send('register-hydration', quantidade);
+
+    function saveAndClose() {
+      if (hasChanges) {
+        window.electron.invoke('save-hydration-data').then(result => {
+          if (result.success) {
+            showMessage('Dados salvos com sucesso!', 'success');
+            setTimeout(() => {
+              window.electron.send('close-hydration-dialog');
+            }, 1000);
+          } else {
+            showMessage('Erro ao salvar os dados.', 'error');
+          }
+        });
+      } else {
+        window.electron.send('close-hydration-dialog');
+      }
     }
-    
-    // Mostrar mensagem de sucesso ou erro
-    function mostrarMensagem(texto, sucesso = true) {
-      messageElement.textContent = texto;
-      messageElement.className = sucesso ? 'message success' : 'message error';
-      
-      // Limpar a mensagem após 3 segundos
+
+    function updateProgress(consumed, goal) {
+      const progress = Math.min((consumed / goal) * 100, 100);
+      document.getElementById('consumed').textContent = consumed + 'ml';
+      document.getElementById('goal').textContent = goal + 'ml';
+      document.getElementById('remaining').textContent = Math.max(goal - consumed, 0) + 'ml';
+      document.getElementById('progress').style.width = progress + '%';
+    }
+
+    function showMessage(text, type) {
+      const message = document.getElementById('message');
+      message.textContent = text;
+      message.className = `message ${type}`;
+      message.classList.add('show');
       setTimeout(() => {
-        messageElement.className = 'message';
+        message.classList.remove('show');
       }, 3000);
     }
-    
-    // Event listeners
-    addCustomAmountButton.addEventListener('click', () => {
-      const quantidade = parseInt(customAmountInput.value);
-      
-      if (isNaN(quantidade) || quantidade <= 0 || quantidade > 2000) {
-        mostrarMensagem('Por favor, insira uma quantidade válida entre 1 e 2000ml', false);
+
+    function addAmount(amount) {
+      if (amount <= 0 || amount > 2000) {
+        showMessage('Quantidade inválida. Insira um valor entre 1 e 2000ml.', 'error');
         return;
       }
-      
-      registrarConsumo(quantidade);
-      customAmountInput.value = '';
+
+      window.electron.invoke('add-hydration-record', {
+        amount: amount,
+        timestamp: Date.now()
+      }).then(result => {
+        if (result.success) {
+          totalConsumed = result.totalConsumed;
+          updateProgress(totalConsumed, dailyGoal);
+          showMessage(`${amount}ml adicionados com sucesso!`, 'success');
+          document.getElementById('customAmount').value = '';
+          hasChanges = true;
+        } else {
+          showMessage('Erro ao registrar consumo.', 'error');
+        }
+      });
+    }
+
+    function addCustomAmount() {
+      const amount = parseInt(document.getElementById('customAmount').value);
+      addAmount(amount);
+    }
+
+    function createQuickOptions(options) {
+      const container = document.getElementById('quickOptions');
+      container.innerHTML = '';
+      options.forEach(amount => {
+        const button = document.createElement('button');
+        button.className = 'amount-button';
+        button.textContent = amount + 'ml';
+        button.onclick = () => addAmount(amount);
+        container.appendChild(button);
+      });
+    }
+
+    // Carregar dados iniciais
+    window.electron.invoke('get-hydration-data').then(data => {
+      totalConsumed = data.totalConsumed;
+      lastAmount = data.lastAmount;
+      updateProgress(totalConsumed, dailyGoal);
     });
-    
-    viewReportButton.addEventListener('click', () => {
-      window.electron.send('show-hydration-report');
+
+    // Carregar configurações
+    window.electron.send('get-hydration-settings');
+    window.electron.receive('hydration-settings', settings => {
+      dailyGoal = settings.metaDiaria;
+      defaultOptions = settings.opcoesPadrao;
+      createQuickOptions(defaultOptions);
+      updateProgress(totalConsumed, dailyGoal);
     });
-    
-    closeButton.addEventListener('click', () => {
-      window.close();
+
+    // Receber detecção automática
+    window.electron.receive('auto-hydration-detected', amount => {
+      const buttons = document.querySelectorAll('.amount-button');
+      buttons.forEach(button => {
+        if (button.textContent === amount + 'ml') {
+          button.classList.add('highlight');
+          setTimeout(() => {
+            button.classList.remove('highlight');
+          }, 3000);
+        }
+      });
     });
-    
-    // Permitir pressionar Enter para adicionar quantidade personalizada
-    customAmountInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        addCustomAmountButton.click();
+
+    // Inicializar com valores padrão
+    createQuickOptions(defaultOptions);
+    updateProgress(0, dailyGoal);
+
+    // Prevenir fechamento acidental
+    window.onbeforeunload = (e) => {
+      if (hasChanges) {
+        e.returnValue = false;
       }
-    });
+    };
   </script>
 </body>
 </html> 

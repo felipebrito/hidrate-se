@@ -1,7 +1,7 @@
 const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, protocol } = require('electron');
 const path = require('path');
 const schedule = require('node-schedule');
-const fs = require('fs');
+const fs = require('fs').promises;
 const HydrationTracker = require('./hydration-tracker');
 let Store;
 let store = null;
@@ -33,9 +33,10 @@ let remainingTimeSeconds = 0;
 let countdownInterval = null;
 let shouldShowReminder = false;
 let hydrationTracker = null;
+let lastHydrationTime = 0; // Adiciona um controle de timestamp para evitar duplicações
 
 // Controle de debug
-const DEBUG = true;
+const DEBUG = false;
 
 function log(...args) {
   if (DEBUG) {
@@ -76,7 +77,14 @@ function updateTrayText() {
 }
 
 function createTray() {
-  // Usar o novo ícone de copo
+  console.log('Criando tray...');
+  
+  if (appTray) {
+    console.log('Tray já existe. Retornando...');
+    return;
+  }
+  
+  // Usar o ícone de copo
   const iconPath = path.join(__dirname, 'assets', 'cup-icon.svg');
   const icon = nativeImage.createFromPath(iconPath);
   
@@ -86,7 +94,6 @@ function createTray() {
     const fallbackIconPath = path.join(__dirname, 'assets', 'icon-16.png');
     trayIcon = nativeImage.createFromPath(fallbackIconPath);
     
-    // Se ambos falharem, criar um ícone vazio
     if (trayIcon.isEmpty()) {
       trayIcon = nativeImage.createEmpty();
     }
@@ -97,14 +104,11 @@ function createTray() {
   appTray = new Tray(trayIcon);
   appTray.setToolTip('Hidrate-se - Lembrete para beber água');
   
-  // Inicialmente sem tempo definido
-  updateTray(remainingTimeSeconds);
+  // Definir menu inicial
+  const menu = buildTrayMenu(null);
+  appTray.setContextMenu(menu);
   
-  // Começa a contagem regressiva somente se a configuração inicial estiver concluída
-  if (isInitialConfigCompleted()) {
-    resetCountdown();
-    scheduleReminder();
-  }
+  console.log('Tray criado com sucesso');
 }
 
 // Atualizar o ícone da bandeja com o tempo restante
@@ -190,6 +194,24 @@ function saveHydrationSettings(settings) {
 function addHydrationRecord(quantidade) {
   if (!hydrationTracker) return { total: 0, metaDiaria: 4000, progresso: 0 };
   
+  // Verificar se já houve um registro recente (menos de 500ms) para evitar duplicações
+  const agora = Date.now();
+  if (agora - lastHydrationTime < 500) {
+    log(`Ignorando registro duplicado (${quantidade}ml) - muito próximo do anterior`);
+    
+    // Retornar os dados mais recentes sem registrar novamente
+    const dadosAtuais = hydrationTracker.obterProgressoHoje();
+    return {
+      quantidade,
+      total: dadosAtuais.consumoTotal,
+      metaDiaria: dadosAtuais.metaDiaria,
+      progresso: dadosAtuais.progresso
+    };
+  }
+  
+  // Atualizar o timestamp do último registro
+  lastHydrationTime = agora;
+  
   const resultado = hydrationTracker.registrarConsumo(quantidade);
   log(`Hidratação registrada: ${quantidade}ml (Total do dia: ${resultado.totalHoje}ml)`);
   
@@ -271,11 +293,6 @@ function createWindow() {
   
   log('Janela principal criada');
   
-  // Abrir DevTools em ambiente de desenvolvimento
-  if (DEBUG) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-  
   // Em vez de fechar a janela, apenas esconda-a
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
@@ -318,9 +335,8 @@ function createReminderWindow() {
   
   log('Janela de lembrete criada');
   
-  if (DEBUG) {
-    reminderWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  // Reativar DevTools APENAS para esta janela
+  reminderWindow.webContents.openDevTools({ mode: 'detach' });
   
   reminderWindow.on('closed', () => {
     reminderWindow = null;
@@ -351,10 +367,6 @@ function createHydrationDialog() {
   
   log('Janela de registro de hidratação criada');
   
-  if (DEBUG) {
-    hydrationDialogWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-  
   hydrationDialogWindow.on('closed', () => {
     hydrationDialogWindow = null;
   });
@@ -383,10 +395,6 @@ function createHydrationReport() {
   hydrationReportWindow.loadFile('hydration-report.html');
   
   log('Janela de relatório de hidratação criada');
-  
-  if (DEBUG) {
-    hydrationReportWindow.webContents.openDevTools({ mode: 'detach' });
-  }
   
   hydrationReportWindow.on('closed', () => {
     hydrationReportWindow = null;
@@ -420,53 +428,108 @@ function scheduleReminder() {
   }
 }
 
-function initApp() {
-  log('Inicializando app...');
+// Função para verificar se a configuração inicial está concluída
+function isInitialConfigCompleted() {
+  return store && store.has('intervalMinutes');
+}
+
+// Função para inicializar o contador e o tray
+function initializeCounterAndTray() {
+  console.log('Inicializando contador e tray...');
+  
+  // Criar tray se ainda não existir
+  if (!appTray) {
+    createTray();
+  }
+  
+  // Iniciar contador
+  const intervalMinutes = store.get('intervalMinutes', 60);
+  remainingTimeSeconds = intervalMinutes * 60;
+  
+  // Atualizar tray e iniciar contagem
+  updateTray(remainingTimeSeconds);
+  startCountdown();
+  
+  console.log(`Contador iniciado com ${intervalMinutes} minutos`);
+}
+
+// Atualizar a função initApp
+async function initApp() {
+  console.log('Inicializando app...');
+  
+  // Garantir que o store está inicializado
+  if (!store) {
+    console.log('Store não inicializado. Aguardando...');
+    return;
+  }
   
   // Inicializar o rastreador de hidratação
   try {
     hydrationTracker = new HydrationTracker();
-    log('HydrationTracker inicializado com sucesso');
+    console.log('HydrationTracker inicializado com sucesso');
   } catch (error) {
     console.error('Erro ao inicializar HydrationTracker:', error);
-    
-    // Tentar novamente após um curto delay (dar tempo para importações dinâmicas)
-    setTimeout(() => {
-      try {
-        if (!hydrationTracker) {
-          hydrationTracker = new HydrationTracker();
-          log('HydrationTracker inicializado com sucesso após retry');
-        }
-      } catch (retryError) {
-        console.error('Erro ao inicializar HydrationTracker (retry):', retryError);
-      }
-    }, 1000);
   }
   
+  // Criar o tray imediatamente
   createTray();
   
   // Verificar configuração inicial
   if (!isInitialConfigCompleted()) {
-    log('Configuração inicial não concluída. Mostrando janela de configuração.');
+    console.log('Configuração inicial não concluída. Mostrando janela de configuração.');
     createWindow();
+  } else {
+    console.log('Configuração já concluída. Iniciando contador.');
+    const intervalMinutes = store.get('intervalMinutes', 60);
+    remainingTimeSeconds = intervalMinutes * 60;
+    updateTray(remainingTimeSeconds);
+    startCountdown();
   }
   
-  // Eventos IPC entre renderer e main processes
+  // Configurar handlers IPC
+  setupIPCHandlers();
+  
+  // Carregar dados de hidratação
+  await loadHydrationData();
+}
+
+// Separar os handlers IPC em uma função própria
+function setupIPCHandlers() {
+  // Atualizar o intervalo de lembretes
+  ipcMain.on('update-interval', (event, minutes) => {
+    console.log(`Atualizando intervalo para ${minutes} minutos`);
+    
+    // Validação básica
+    if (typeof minutes !== 'number' || minutes < 15 || minutes > 180) {
+      console.log('Intervalo inválido. Deve estar entre 15 e 180 minutos.');
+      event.reply('interval-updated', { success: false, error: 'Intervalo inválido' });
+      return;
+    }
+    
+    // Salvar o novo intervalo
+    store.set('intervalMinutes', minutes);
+    
+    // Inicializar contador e tray se ainda não existirem
+    initializeCounterAndTray();
+    
+    event.reply('interval-updated', { success: true });
+  });
   
   // Evento quando detecção de água é confirmada
   ipcMain.on('close-reminder', () => {
     log('Evento close-reminder recebido, fechando janela de lembrete...');
     
+    // Apenas processar se a janela de lembrete existir
     if (reminderWindow) {
       reminderWindow.close();
       reminderWindow = null;
+      
+      // Reiniciar a contagem após beber água
+      resetCountdown();
+      
+      // Mostrar diálogo para registrar hidratação
+      createHydrationDialog();
     }
-    
-    // Reiniciar a contagem após beber água
-    resetCountdown();
-    
-    // Mostrar diálogo para registrar hidratação
-    createHydrationDialog();
   });
   
   // Registrar consumo de água
@@ -498,27 +561,6 @@ function initApp() {
   ipcMain.on('save-hydration-settings', (event, settings) => {
     const resultado = saveHydrationSettings(settings);
     event.reply('hydration-settings-saved', resultado);
-  });
-  
-  // Atualizar o intervalo de lembretes
-  ipcMain.on('update-interval', (event, minutes) => {
-    log(`Atualizando intervalo para ${minutes} minutos`);
-    
-    // Validação básica
-    if (typeof minutes !== 'number' || minutes < 15 || minutes > 180) {
-      log('Intervalo inválido. Deve estar entre 15 e 180 minutos.');
-      event.reply('interval-updated', { success: false, error: 'Intervalo inválido' });
-      return;
-    }
-    
-    // Salvar o novo intervalo
-    store.set('intervalMinutes', minutes);
-    
-    // Atualizar o agendamento e reiniciar o contador
-    scheduleReminder();
-    resetCountdown();
-    
-    event.reply('interval-updated', { success: true });
   });
   
   // Mostrar configurações
@@ -557,11 +599,14 @@ function initApp() {
       mainWindow.webContents.send('current-interval', intervalMinutes);
     }
   });
-}
 
-// Verificar se a configuração inicial está concluída
-function isInitialConfigCompleted() {
-  return store && store.has('intervalMinutes');
+  // Fechar diálogo de hidratação
+  ipcMain.on('close-hydration-dialog', () => {
+    console.log('Fechando diálogo de hidratação');
+    if (hydrationDialogWindow && !hydrationDialogWindow.isDestroyed()) {
+      hydrationDialogWindow.close();
+    }
+  });
 }
 
 // Função para definir o conteúdo do menu do tray
@@ -651,19 +696,27 @@ function createOrFocusReminderWindow() {
   
   reminderWindow.loadFile('reminder.html');
   
-  // Abrir DevTools em modo de desenvolvimento
-  if (DEBUG) {
-    reminderWindow.webContents.openDevTools({mode: 'detach'});
-  }
-  
   reminderWindow.on('closed', () => {
     reminderWindow = null;
   });
 }
 
 // Eventos do ciclo de vida da aplicação
-app.on('ready', () => {
-  initApp();
+app.whenReady().then(async () => {
+  console.log('App está pronto. Iniciando...');
+  
+  // Garantir que o store está inicializado antes de continuar
+  if (!store) {
+    console.log('Aguardando inicialização do store...');
+    const storeInterval = setInterval(() => {
+      if (store) {
+        clearInterval(storeInterval);
+        initApp();
+      }
+    }, 100);
+  } else {
+    initApp();
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -680,4 +733,144 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+});
+
+// Armazenamento de dados de hidratação
+let hydrationStore = {
+  records: [],
+  lastAmount: 0,
+  lastTime: 0,
+  totalConsumed: 0
+};
+
+// Carregar dados de hidratação do arquivo
+async function loadHydrationData() {
+  try {
+    console.log('Tentando carregar dados de hidratação...');
+    const data = await fs.readFile(path.join(app.getPath('userData'), 'hydration.json'), 'utf8');
+    const parsed = JSON.parse(data);
+    hydrationStore = {
+      records: parsed.records || [],
+      lastAmount: parsed.lastAmount || 0,
+      lastTime: parsed.lastTime || 0,
+      totalConsumed: parsed.totalConsumed || 0
+    };
+    console.log('Dados de hidratação carregados:', hydrationStore);
+  } catch (error) {
+    console.log('Nenhum dado de hidratação encontrado, iniciando novo armazenamento');
+  }
+}
+
+// Salvar dados de hidratação no arquivo
+async function saveHydrationData() {
+  try {
+    console.log('Salvando dados de hidratação...');
+    await fs.writeFile(
+      path.join(app.getPath('userData'), 'hydration.json'),
+      JSON.stringify(hydrationStore, null, 2)
+    );
+    console.log('Dados de hidratação salvos com sucesso');
+  } catch (error) {
+    console.error('Erro ao salvar dados de hidratação:', error);
+  }
+}
+
+// Inicializar dados de hidratação
+loadHydrationData();
+
+// Handlers para hidratação
+ipcMain.handle('add-hydration-record', async (event, { amount, timestamp }) => {
+  console.log('Recebido pedido para adicionar registro:', { amount, timestamp });
+  try {
+    const record = {
+      amount,
+      timestamp,
+      id: Date.now().toString()
+    };
+    
+    hydrationStore.records.push(record);
+    hydrationStore.lastAmount = amount;
+    hydrationStore.lastTime = Date.now();
+    hydrationStore.totalConsumed += amount;
+    
+    await saveHydrationData();
+    console.log('Registro adicionado com sucesso');
+    
+    return {
+      success: true,
+      totalConsumed: hydrationStore.totalConsumed
+    };
+  } catch (error) {
+    console.error('Erro ao adicionar registro de hidratação:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('update-last-hydration', async (event, { oldAmount, newAmount, timestamp }) => {
+  console.log('Recebido pedido para atualizar registro:', { oldAmount, newAmount, timestamp });
+  try {
+    const lastRecord = hydrationStore.records[hydrationStore.records.length - 1];
+    if (!lastRecord) {
+      throw new Error('Nenhum registro encontrado para atualizar');
+    }
+    
+    lastRecord.amount = newAmount;
+    lastRecord.timestamp = timestamp;
+    
+    hydrationStore.totalConsumed = hydrationStore.totalConsumed - oldAmount + newAmount;
+    hydrationStore.lastAmount = newAmount;
+    hydrationStore.lastTime = Date.now();
+    
+    await saveHydrationData();
+    console.log('Registro atualizado com sucesso');
+    
+    return {
+      success: true,
+      totalConsumed: hydrationStore.totalConsumed
+    };
+  } catch (error) {
+    console.error('Erro ao atualizar registro de hidratação:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-hydration-data', async () => {
+  console.log('Recebido pedido para obter dados de hidratação');
+  try {
+    return {
+      totalConsumed: hydrationStore.totalConsumed,
+      lastAmount: hydrationStore.lastAmount,
+      lastTime: hydrationStore.lastTime,
+      records: hydrationStore.records
+    };
+  } catch (error) {
+    console.error('Erro ao obter dados de hidratação:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Enviar detecção automática de hidratação
+function sendAutoHydrationDetection(amount) {
+  console.log('Enviando detecção automática:', amount);
+  if (hydrationDialogWindow && !hydrationDialogWindow.isDestroyed()) {
+    hydrationDialogWindow.webContents.send('auto-hydration-detected', amount);
+  }
+}
+
+// Receber detecção de hidratação do reminder
+ipcMain.on('hydration-detected', (event, amount) => {
+  console.log('Recebida detecção de hidratação:', amount);
+  sendAutoHydrationDetection(amount);
+});
+
+// Adicionar handle para save-hydration-data
+ipcMain.handle('save-hydration-data', async () => {
+  console.log('Salvando dados de hidratação...');
+  try {
+    await hydrationTracker.saveData();
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao salvar dados:', error);
+    return { success: false, error: error.message };
+  }
 });

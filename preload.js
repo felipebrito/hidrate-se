@@ -1,70 +1,51 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Console log para debug
-console.log('Preload.js carregado com sucesso');
+// Log de inicialização
+console.log('Preload script iniciando...');
 
 // Expor API segura para a janela de renderização
 contextBridge.exposeInMainWorld('electron', {
-  // Enviar mensagens para o processo principal
+  // Enviar mensagens
   send: (channel, data) => {
-    // Lista de canais permitidos
     const validChannels = [
-      'update-interval', 
-      'close-reminder', 
-      'get-current-interval', 
-      'force-reminder',
-      // Novos canais para funcionalidades de hidratação
-      'register-hydration',
-      'get-today-hydration',
-      'get-hydration-report',
-      'get-hydration-settings',
-      'save-hydration-settings',
+      'hydration-detected',
       'show-hydration-dialog',
-      'show-hydration-report'
+      'show-reminder',
+      'close-reminder',
+      'close-hydration-dialog',
+      'get-hydration-settings'
     ];
-    
     if (validChannels.includes(channel)) {
-      console.log(`[preload] Enviando mensagem para canal: ${channel}`, data);
+      console.log(`[preload] Enviando mensagem para canal ${channel}:`, data);
       ipcRenderer.send(channel, data);
-    } else {
-      console.warn(`[preload] Canal não permitido: ${channel}`);
     }
   },
   
-  // Receber mensagens do processo principal
+  // Receber mensagens
   receive: (channel, func) => {
-    // Lista de canais permitidos para receber
-    const validChannels = [
-      'current-interval', 
-      'reminder-scheduled',
-      'close-reminder-response',
-      // Novos canais para funcionalidades de hidratação
-      'hydration-updated',
-      'today-hydration',
-      'hydration-report',
-      'hydration-settings',
-      'hydration-settings-saved'
-    ];
-    
+    const validChannels = ['auto-hydration-detected'];
     if (validChannels.includes(channel)) {
-      console.log(`[preload] Registrando listener para canal: ${channel}`);
-      
-      // Remover listeners antigos para evitar duplicações
-      ipcRenderer.removeAllListeners(channel);
-      
-      // Adicionar novo listener
+      console.log(`[preload] Registrando listener para canal ${channel}`);
       ipcRenderer.on(channel, (event, ...args) => {
-        console.log(`[preload] Recebida mensagem no canal: ${channel}`, args);
+        console.log(`[preload] Recebida mensagem no canal ${channel}:`, args);
         func(...args);
       });
-    } else {
-      console.warn(`[preload] Canal de recebimento não permitido: ${channel}`);
     }
   },
   
-  // Método para testar se a API do Electron está disponível
-  ping: () => {
-    console.log('[preload] Ping chamado');
-    return 'pong';
+  // Invocar métodos
+  invoke: (channel, data) => {
+    const validChannels = [
+      'add-hydration-record',
+      'update-last-hydration',
+      'get-hydration-data',
+      'save-hydration-data'
+    ];
+    if (validChannels.includes(channel)) {
+      console.log(`[preload] Invocando método ${channel}:`, data);
+      return ipcRenderer.invoke(channel, data);
+    }
   }
 });
+
+console.log('Preload script concluído.');

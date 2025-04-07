@@ -8,13 +8,16 @@
     "start": "electron .",
     "build": "electron-builder",
     "download-models": "node download-tf-models.js",
-    "prestart": "npm run download-models"
+    "prestart": "npm run download-models",
+    "dist": "electron-builder --mac",
+    "postinstall": "npm run download-models"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.1.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "electron-icon-builder": "^2.0.1"
   },
   "dependencies": {
     "@tensorflow/tfjs-backend-cpu": "^4.22.0",
@@ -27,7 +30,24 @@
     "appId": "com.hidratese.reminder",
     "productName": "Hidrate-se",
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      },
+      {
+        "from": "models",
+        "to": "models"
+      }
+    ],
+    "directories": {
+      "output": "dist"
     }
   }
 }

@@ -2,46 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src * https://cdn.jsdelivr.net app://* file://*; img-src 'self' data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src * https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data: blob:; media-src 'self' blob:;">
   <title>Hora de Beber Água!</title>
   
-  <!-- Carregamento ordenado e correto do TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@2.0.0/dist/tf-core.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@2.0.0/dist/tf-backend-cpu.min.js"></script>
-  <script>
-    // Inicializar o backend imediatamente para evitar problemas
-    try {
-      // Verificar se temos o core e backend disponíveis
-      if (typeof tf !== 'undefined') {
-        console.log('TensorFlow core disponível, inicializando...');
-        // Registrar o backend CPU explicitamente
-        if (typeof tf.registerBackend === 'function') {
-          tf.registerBackend('cpu');
-          console.log('Backend CPU registrado manualmente');
-        }
-      }
-    } catch (e) {
-      console.error('Erro ao inicializar TensorFlow.js:', e);
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@2.0.0/dist/tf-converter.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
-  <script>
-    // Configurar o backend após carregar todos os scripts
-    try {
-      if (typeof tf !== 'undefined' && typeof tf.setBackend === 'function') {
-        console.log('Definindo backend CPU após carregar todos os scripts...');
-        tf.setBackend('cpu').then(() => {
-          if (typeof tf.getBackend === 'function') {
-            console.log('Backend configurado para:', tf.getBackend());
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Erro ao configurar backend após carregar scripts:', e);
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.0.3/dist/coco-ssd.min.js"></script>
+  <!-- Carregamento do TensorFlow.js e COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
   
   <style>
     body {
@@ -257,7 +223,7 @@
     let frameCount = 0;
     const FRAMES_PER_DETECTION = 10; // Detectar a cada 10 frames
     
-    // Verificar se TensorFlow e COCO-SSD estão disponíveis
+    // Função para verificar se o TensorFlow.js está carregado
     function checkTensorflowAvailable() {
       const tfAvailable = (typeof tf !== 'undefined');
       const cocoAvailable = (typeof cocoSsd !== 'undefined');
@@ -268,101 +234,35 @@
       return tfAvailable && cocoAvailable;
     }
     
-    // Inicializar TensorFlow.js manualmente
-    async function initializeTensorflow() {
-      try {
-        if (typeof tf !== 'undefined') {
-          console.log('Inicializando TensorFlow.js manualmente...');
-          
-          // Registrar backend CPU
-          if (typeof tf.registerBackend === 'function') {
-            try {
-              tf.registerBackend('cpu');
-              console.log('Backend CPU registrado manualmente');
-            } catch (e) {
-              console.log('Backend CPU já registrado ou erro:', e);
-            }
-          }
-          
-          // Definir backend para CPU
-          if (typeof tf.setBackend === 'function') {
-            try {
-              await tf.setBackend('cpu');
-              console.log('Backend definido para CPU');
-              
-              if (typeof tf.getBackend === 'function') {
-                console.log('Backend atual:', tf.getBackend());
-              }
-            } catch (e) {
-              console.error('Erro ao definir backend:', e);
-            }
-          }
-          
-          // Verificar disponibilidade do backend
-          if (typeof tf.ready === 'function') {
-            await tf.ready();
-            console.log('TensorFlow.js inicializado com sucesso');
-          }
-          
-          return true;
-        } else {
-          console.error('TensorFlow.js não está disponível');
-          return false;
-        }
-      } catch (e) {
-        console.error('Erro ao inicializar TensorFlow.js:', e);
-        return false;
-      }
-    }
-    
     // Carregar modelo de detecção de objetos
     async function loadModel() {
       try {
         console.log('Iniciando carregamento do modelo...');
         
-        // Inicializar TensorFlow.js
-        const tfInitialized = await initializeTensorflow();
-        if (!tfInitialized) {
-          throw new Error('Não foi possível inicializar o TensorFlow.js');
+        // Verificar se TensorFlow.js está disponível
+        if (!checkTensorflowAvailable()) {
+          throw new Error('TensorFlow.js ou COCO-SSD não estão disponíveis');
         }
         
-        // Verificar se COCO-SSD está disponível
-        if (typeof cocoSsd === 'undefined') {
-          throw new Error('COCO-SSD não está disponível');
-        }
+        // Carregar modelo COCO-SSD
+        console.log('Carregando modelo COCO-SSD...');
+        model = await cocoSsd.load();
         
-        // Carregar modelo com opções específicas
-        console.log('Carregando modelo COCO-SSD com configuração lite...');
-        try {
-          model = await cocoSsd.load({
-            base: 'lite_mobilenet_v2'
-          });
-          console.log('Modelo COCO-SSD carregado com sucesso!');
-        } catch (modelError) {
-          console.error('Erro ao carregar modelo com configurações específicas:', modelError);
-          
-          // Tentar carregar com configuração padrão
-          console.log('Tentando carregar modelo com configuração padrão...');
-          model = await cocoSsd.load();
-          console.log('Modelo COCO-SSD padrão carregado com sucesso!');
-        }
-        
+        console.log('Modelo COCO-SSD carregado com sucesso!');
         modelLoaded = true;
         statusText.textContent = "Procurando por copo ou garrafa...";
-        
-        // Esconder overlay de carregamento
         loadingOverlay.style.display = 'none';
         
         return model;
       } catch (error) {
         console.error("Erro ao carregar modelo:", error);
-        statusText.textContent = "Erro ao carregar modelo. Você pode pular a detecção se preferir.";
+        const errorMessage = error.message || 'Erro desconhecido';
+        statusText.textContent = `Erro ao carregar modelo: ${errorMessage}`;
         
-        // Mostrar botão para tentar de novo
         const loadingStatus = document.getElementById('loadingStatus');
         loadingStatus.innerHTML = `
           Erro ao carregar modelo.<br>
-          Mensagem: ${error.message}<br>
+          Mensagem: ${errorMessage}<br>
           <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #1e88e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
             Tentar Novamente
           </button>
@@ -408,35 +308,28 @@
     // Iniciar o aplicativo
     async function startApp() {
       try {
-        console.log('Verificando disponibilidade do TensorFlow.js...');
-        
-        // Verificar se TensorFlow.js e COCO-SSD estão disponíveis
-        if (!checkTensorflowAvailable()) {
-          console.error('TensorFlow.js ou COCO-SSD não estão disponíveis');
-          
-          // Tentar inicializar manualmente
-          const initialized = await initializeTensorflow();
-          if (!initialized || typeof cocoSsd === 'undefined') {
-            throw new Error('Não foi possível inicializar TensorFlow.js ou COCO-SSD não está disponível');
-          }
-        }
-        
         console.log('Iniciando aplicação...');
         
         try {
           // Iniciar câmera e modelo em paralelo
+          console.log('Iniciando câmera e carregando modelo...');
           const cameraPromise = setupCamera();
           const modelPromise = loadModel();
           
-          await Promise.all([cameraPromise, modelPromise]);
+          // Aguardar com timeout
+          await Promise.race([
+            Promise.all([cameraPromise, modelPromise]),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout ao carregar modelo e câmera')), 30000)
+            )
+          ]);
+          
           console.log('Câmera e modelo inicializados com sucesso!');
-          
-          // Iniciar detecção de objetos
           detectObjects();
-        } catch (initError) {
-          console.error('Erro ao inicializar câmera ou modelo:', initError);
           
-          // Se a câmera foi inicializada mas o modelo falhou, mostrar a câmera
+        } catch (initError) {
+          console.error('Erro ao inicializar:', initError);
+          
           if (cameraReady) {
             console.log('Câmera disponível, mostrando vídeo sem detecção');
             loadingOverlay.style.display = 'none';
@@ -447,7 +340,6 @@
       } catch (error) {
         console.error('Erro ao iniciar aplicação:', error);
         
-        // Mostrar mensagem de erro e opções para o usuário
         const loadingStatus = document.getElementById('loadingStatus');
         loadingStatus.innerHTML = `
           Erro ao iniciar aplicação.<br>
@@ -464,11 +356,11 @@
     
     // Iniciar aplicação quando a página carregar
     window.onload = function() {
-      // Verificar se já temos TensorFlow.js carregado
+      // Dar mais tempo para os scripts carregarem
       setTimeout(() => {
         console.log('Página carregada, iniciando aplicação...');
         startApp();
-      }, 1000);
+      }, 2000); // Aumentado para 2 segundos
     };
     
     // Iniciar câmera com tratamento de erros melhorado
@@ -694,6 +586,48 @@
         
         // Tentar continuar apesar do erro
         requestAnimationFrame(detectObjects);
+      }
+    }
+
+    // Quando um copo for detectado
+    async function onCupDetected() {
+      try {
+        console.log('Copo detectado!');
+        
+        // Enviar detecção para o processo principal
+        if (window.electron) {
+          console.log('Enviando detecção para o processo principal...');
+          window.electron.send('hydration-detected', 200);
+        } else {
+          console.error('window.electron não está disponível');
+        }
+        
+        // Atualizar interface
+        updateDetectionStatus('Copo detectado! Registrando consumo...');
+        
+        // Aguardar um pouco antes de voltar ao estado normal
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        updateDetectionStatus('Aguardando...');
+      } catch (error) {
+        console.error('Erro ao processar detecção:', error);
+        updateDetectionStatus('Erro ao processar detecção');
+      }
+    }
+
+    // Processar detecções do modelo
+    async function processDetections(predictions) {
+      try {
+        // Procurar por copos nas detecções
+        const cupDetection = predictions.find(p => 
+          (p.class === 'cup' || p.class === 'wine glass') && p.score > 0.70
+        );
+        
+        if (cupDetection) {
+          console.log('Detecção de copo:', cupDetection);
+          await onCupDetected();
+        }
+      } catch (error) {
+        console.error('Erro ao processar detecções:', error);
       }
     }
   </script>
